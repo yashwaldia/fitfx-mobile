@@ -1,17 +1,15 @@
 import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { View, Text, StyleSheet } from 'react-native';
+import { NEUMORPHIC, AURORA_GRADIENT } from '@/src/config';
 
 export default function ModalScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
+    <View style={styles.container}>
+      <Text style={styles.title}>This is a modal</Text>
+      <Link href="/" style={styles.link}>
+        <Text style={styles.linkText}>Go to home screen</Text>
       </Link>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -21,9 +19,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
+    backgroundColor: NEUMORPHIC.bg,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: AURORA_GRADIENT.cyan,
+    marginBottom: 20,
   },
   link: {
     marginTop: 15,
     paddingVertical: 15,
+  },
+  linkText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AURORA_GRADIENT.pink,
+    textDecorationLine: 'underline',
   },
 });

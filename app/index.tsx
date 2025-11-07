@@ -1,17 +1,14 @@
 import React from 'react';
 import { useRouter } from 'expo-router';
-import HomeScreen from '../../src/screens/HomeScreen';
+import HomeScreen from '../src/screens/HomeScreen';
 
-export default function HomeTab() {
+export default function HomePage() {
   const router = useRouter();
 
   const handleNavigate = (screen: string) => {
     console.log('Navigate to:', screen);
     
     switch (screen) {
-      case 'home':
-        router.push('/(tabs)');
-        break;
       case 'wardrobe':
         router.push('/wardrobe');
         break;
@@ -21,12 +18,14 @@ export default function HomeTab() {
       case 'color':
         router.push('/color');
         break;
+      case 'home':
       case 'selfie':
       case 'calendar':
       case 'upgrade':
       case 'settings':
       case 'suggestions':
-        console.log(`${screen} - coming soon`);
+        // For now, just log - implement these pages later
+        console.log(`Navigate to ${screen} - coming soon`);
         break;
       default:
         console.log('Unknown route:', screen);
