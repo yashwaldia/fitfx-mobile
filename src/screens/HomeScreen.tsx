@@ -1,10 +1,9 @@
 // src/screens/HomeScreen.tsx
 //
 // ✅ UPDATED:
-// 1. Added a Modal that shows when "Selfie" is clicked.
-// 2. Added 'handleTakePhoto' and 'handleUploadFromGallery'
-// 3. Both functions now use 'expo-image-picker' and navigate
-//    to the new '/stylist' screen with the image URI.
+// 1. No changes were needed!
+// 2. The button `onPress={() => onNavigate('calendar')}` is already
+//    correct and will work with the new CalendarScreen.
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -14,14 +13,14 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  Modal, // ✅ ADDED: Import Modal
+  Modal,
   Platform,
-  Alert, // ✅ ADDED: Import Alert
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker'; // ✅ ADDED: Image Picker
+import * as ImagePicker from 'expo-image-picker';
 import GradientBackground from '../components/GradientBackground';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import NeuButton from '../components/NeuButton';
@@ -42,7 +41,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [userTier, setUserTier] = useState<'free' | 'style_plus' | 'style_x'>(
     'free'
   );
-  // ✅ ADDED: State for the new modal
   const [selfieModalVisible, setSelfieModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -63,7 +61,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     loadUserTier();
   }, []);
 
-  // ✅ ADDED: Function to handle 'Take Photo'
   const handleTakePhoto = async () => {
     setSelfieModalVisible(false); // Close modal first
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -77,11 +74,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
-        // base64: true, // We will convert from URI in the next screen
       });
 
       if (!result.canceled && result.assets[0].uri) {
-        // Pass the URI. The StylistScreen will handle conversion.
         router.push({
           pathname: '/stylist',
           params: { imageUri: result.assets[0].uri },
@@ -93,7 +88,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  // ✅ ADDED: Function to handle 'Upload from Gallery'
   const handleUploadFromGallery = async () => {
     setSelfieModalVisible(false); // Close modal first
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -108,11 +102,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
-        // base64: true, // We will convert from URI in the next screen
       });
 
       if (!result.canceled && result.assets[0].uri) {
-        // Pass the URI. The StylistScreen will handle conversion.
         router.push({
           pathname: '/stylist',
           params: { imageUri: result.assets[0].uri },
@@ -141,7 +133,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       id: 'color',
       icon: 'palette',
       label: 'Color',
-      onPress: () => onNavigate('color'), // This still uses onNavigate
+      onPress: () => onNavigate('color'),
     },
   ];
 
@@ -239,7 +231,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               </Text>
             </TouchableOpacity>
 
-            {/* ✅ FIXED: Selfie button now opens the modal */}
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => setSelfieModalVisible(true)}
@@ -264,7 +255,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               </Text>
             </TouchableOpacity>
 
-            {/* Other nav buttons (unchanged) */}
+            {/* This button is already correct! */}
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => onNavigate('calendar')}
@@ -290,6 +281,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 Calendar
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => onNavigate('upgrade')}
@@ -313,14 +305,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 Upgrade
               </Text>
             </TouchableOpacity>
+
+            {/* ✅ FIXED: Changed to "Profile" */}
             <TouchableOpacity
               style={styles.navButton}
-              onPress={() => onNavigate('settings')}
+              onPress={() => onNavigate('settings')} // Still navigates to 'settings' page
               activeOpacity={0.7}
             >
               <Ionicons
                 name={
-                  currentTab === 'settings' ? 'settings' : 'settings-outline'
+                  currentTab === 'settings' ? 'person' : 'person-outline' // ✅ Changed icon
                 }
                 size={22}
                 color={
@@ -335,13 +329,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   currentTab === 'settings' && styles.navLabelActive,
                 ]}
               >
-                Settings
+                Profile {/* ✅ Changed label */}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ✅ ADDED: The Selfie Picker Modal */}
+        {/* The Selfie Picker Modal (Unchanged) */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -393,7 +387,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: NEUMORPHIC.bgDarker,
   },
   wrapper: {
     flex: 1,

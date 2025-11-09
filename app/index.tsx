@@ -13,20 +13,32 @@ export default function HomePage() {
         router.push('/wardrobe');
         break;
       case 'editor':
-        router.push('/editor');
+        router.push({ pathname: '/wardrobe', params: { tab: 'ai' } });
         break;
       case 'color':
         router.push('/color');
         break;
-      case 'home':
-      case 'selfie':
-      case 'calendar':
       case 'upgrade':
-      case 'settings':
-      case 'suggestions':
-        // For now, just log - implement these pages later
-        console.log(`Navigate to ${screen} - coming soon`);
+        router.push('/upgrade');
         break;
+      case 'settings':
+        router.push('/settings');
+        break;
+      case 'home':
+        router.push('/');
+        break;
+      case 'selfie':
+        // This is handled by the modal in HomeScreen
+        console.log('Selfie modal will open');
+        break;
+      
+      // ✅ --- THIS IS THE FIX --- ✅
+      case 'calendar':
+      case 'suggestions':
+        router.push('/calendar'); // Replaced the "coming soon" log
+        break;
+      // ✅ -------------------------- ✅
+
       default:
         console.log('Unknown route:', screen);
     }

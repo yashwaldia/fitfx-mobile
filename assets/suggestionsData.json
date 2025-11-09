@@ -1,0 +1,76 @@
+{
+  "professional": {
+    "american": [
+      {
+        "Colour Combination": "Navy & White",
+        "T-Shirt/Shirt": "White Cotton Shirt",
+        "Trousers/Bottom": "Navy Blue Chinos",
+        "Jacket/Layer": "Light Grey Blazer",
+        "Shoes & Accessories": "Brown Leather Shoes, Brown Belt"
+      },
+      {
+        "Colour Combination": "Black & Grey",
+        "T-Shirt/Shirt": "Light Grey Dress Shirt",
+        "Trousers/Bottom": "Black Slim-Fit Trousers",
+        "Jacket/Layer": "Black Blazer",
+        "Shoes & Accessories": "Black Oxford Shoes, Black Belt"
+      }
+    ],
+    "indian": [
+      {
+        "Colour Combination": "Cream & Maroon",
+        "T-Shirt/Shirt": "Cream Kurta",
+        "Trousers/Bottom": "Maroon Pyjamas",
+        "Jacket/Layer": "Maroon Nehru Jacket",
+        "Shoes & Accessories": "Brown Mojaris"
+      },
+      {
+        "Colour Combination": "Blue & White",
+        "T-Shirt/Shirt": "White Kurta",
+        "Trousers/Bottom": "White Pyjamas",
+        "Jacket/Layer": "Royal Blue Nehru Jacket",
+        "Shoes & Accessories": "Black Sandals"
+      }
+    ]
+  },
+  "party": {
+    "american": [
+      {
+        "Colour Combination": "Black & Gold",
+        "T-Shirt/Shirt": "Black Silk Shirt",
+        "Trousers/Bottom": "Black Trousers",
+        "Jacket/Layer": "Black Blazer with Gold accents",
+        "Shoes & Accessories": "Black Loafers, Gold Watch"
+      }
+    ],
+    "indian": [
+      {
+        "Colour Combination": "Black & Silver",
+        "T-Shirt/Shirt": "Black Kurta",
+        "Trousers/Bottom": "Black Pyjamas",
+        "Jacket/Layer": "Silver Embellished Nehru Jacket",
+        "Shoes & Accessories": "Black Mojaris"
+      }
+    ]
+  },
+  "casual": {
+    "american": [
+      {
+        "Colour Combination": "Denim & White",
+        "T-Shirt/Shirt": "White T-Shirt",
+        "Trousers/Bottom": "Blue Jeans",
+        "Jacket/Layer": "Denim Jacket",
+        "Shoes & Accessories": "White Sneakers"
+      }
+    ],
+    "indian": [
+      {
+        "Colour Combination": "Olive & Beige",
+        "T-Shirt/Shirt": "Olive Green Kurta Shirt",
+        "Trousers/Bottom": "Beige Linen Trousers",
+        "Jacket/Layer": "None",
+        "Shoes & Accessories": "Brown Leather Sandals"
+      }
+    ]
+  }
+}
