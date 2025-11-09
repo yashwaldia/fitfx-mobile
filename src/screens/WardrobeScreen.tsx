@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router'; // ✅ ADDED: useLocalSearchParams
 import { onAuthStateChanged } from 'firebase/auth';
 
 // ✅ FIX: Correct imports
@@ -52,7 +52,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
 const WardrobeScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'items' | 'ai'>('items');
+  // ✅ ADDED: Get search parameters from router
+  const { tab } = useLocalSearchParams<{ tab?: 'items' | 'ai' }>();
+
+  // ✅ UPDATED: Use 'tab' param for initial state, default to 'items'
+  const [activeTab, setActiveTab] = useState<'items' | 'ai'>(
+    tab === 'ai' ? 'ai' : 'items'
+  );
   const [wardrobe, setWardrobe] = useState<Garment[]>([]);
   const [status, setStatus] = useState<WardrobeStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +94,10 @@ const WardrobeScreen: React.FC = () => {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         // Only respond to horizontal swipes (not vertical scrolling)
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+        return (
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
+          Math.abs(gestureState.dx) > 10
+        );
       },
       onPanResponderMove: (_, gestureState) => {
         // ✅ CRITICAL: This provides visual feedback during swipe
@@ -143,6 +152,15 @@ const WardrobeScreen: React.FC = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // ✅ ADDED: Listen for changes to 'tab' param and switch tab if needed
+  useEffect(() => {
+    if (tab === 'ai' && activeTab !== 'ai') {
+      switchTab('ai');
+    } else if (tab === 'items' && activeTab !== 'items') {
+      switchTab('items');
+    }
+  }, [tab]);
 
   // Load wardrobe data
   const loadWardrobeData = async (uid: string) => {
@@ -407,13 +425,15 @@ const WardrobeScreen: React.FC = () => {
               size={20}
               color={activeTab === 'ai' ? '#00CED1' : NEUMORPHIC.textSecondary}
             />
-            <Text style={[styles.tabText, activeTab === 'ai' && styles.tabTextActive]}>
+            <Text
+              style={[styles.tabText, activeTab === 'ai' && styles.tabTextActive]}
+            >
               AI Looks
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ✅ FIX: Swipeable Content Container - PanResponder on outer View */}
+        {/*  FIX: Swipeable Content Container - PanResponder on outer View */}
         <View style={styles.contentWrapper} {...panResponder.panHandlers}>
           <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>
             <ScrollView
@@ -449,7 +469,7 @@ const WardrobeScreen: React.FC = () => {
           </Animated.View>
         </View>
 
-        {/* ✅ FIX: ONLY ONE FAB - Bottom Right, Above Nav Bar, ONLY on Items Tab */}
+        {/* FIX: ONLY ONE FAB - Bottom Right, Above Nav Bar, ONLY on Items Tab */}
         {activeTab === 'items' && (
           <TouchableOpacity style={styles.floatingAddButton} onPress={handleAddItem}>
             <Ionicons name="add" size={28} color="#fff" />

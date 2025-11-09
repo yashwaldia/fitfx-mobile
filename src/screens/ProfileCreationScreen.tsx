@@ -1,34 +1,41 @@
+// src/screens/ProfileCreationScreen.tsx
+//
+// ✅ UPDATED: Fixed all type errors and navigation logic.
+
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  TouchableOpacity,
+  TextInput,
   Alert,
+  Image,
 } from 'react-native';
-import { router } from 'expo-router';
-import { auth } from '../config/firebaseConfig';
-import { saveUserProfile } from '../services/firestoreService';
-import { useAuth } from '../contexts/AuthContext';
-import { NEUMORPHIC, AURORA_GRADIENT, THEME } from '../config';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { getAuth } from 'firebase/auth';
+import { router } from 'expo-router'; // ✅ FIXED: Import router
+
 import GradientBackground from '../components/GradientBackground';
+import { saveUserProfile } from '../services/firestoreService';
+// import { useAuth } from '../contexts/AuthContext'; // ✅ FIXED: Removed unused import
+import { NEUMORPHIC, AURORA_GRADIENT } from '../config'; 
 import type {
   UserProfile,
-  Gender,
+  ProfileOccasion, // ✅ FIXED: Use new ProfileOccasion type
   Style,
-  Occasion,
+  ProfileGender, // ✅ FIXED: Use new ProfileGender type
   AgeGroup,
   BodyType,
-} from '../types/auth';
+} from '../types'; // ✅ FIXED: Import new types
 
-const GENDERS: Gender[] = ['Male', 'Female', 'Unisex', 'Kids'];
-const STYLES: Style[] = ['American', 'Indian', 'Fusion', 'Other'];
-const OCCASIONS: Occasion[] = [
+// --- Data from your website code ---
+const stylesData: Style[] = ['American', 'Indian', 'Fusion', 'Other']; // ✅ FIXED: Renamed to avoid conflict
+const genders: ProfileGender[] = ['Male', 'Female', 'Unisex', 'Kids']; // ✅ FIXED: Use ProfileGender
+const occasions: ProfileOccasion[] = [ // ✅ FIXED: Use ProfileOccasion
   'Traditional',
   'Cultural',
   'Modern',
@@ -39,609 +46,529 @@ const OCCASIONS: Occasion[] = [
   'Business',
   'Street Fusion',
 ];
-const AGE_GROUPS: AgeGroup[] = [
+const ageGroups: AgeGroup[] = [
   'Teen (13-17)',
   'Young Adult (18-25)',
   'Adult (26-35)',
   'Middle-Aged (36-45)',
   'Senior (46+)',
 ];
-const BODY_TYPES: BodyType[] = [
-  'Rectangle',
-  'Triangle',
-  'Inverted Triangle',
-  'Hourglass',
-  'Oval',
+const FASHION_COLORS = [
+  { name: 'Black', hex: '#000000' }, { name: 'White', hex: '#FFFFFF' }, { name: 'Charcoal', hex: '#36454F' }, { name: 'Grey', hex: '#808080' },
+  { name: 'Navy', hex: '#000080' }, { name: 'Royal Blue', hex: '#4169E1' }, { name: 'Sky Blue', hex: '#87CEEB' }, { name: 'Turquoise', hex: '#40E0D0' },
+  { name: 'Emerald', hex: '#50C878' }, { name: 'Olive', hex: '#808000' }, { name: 'Mint Green', hex: '#98FF98' }, { name: 'Sage', hex: '#B2AC88' },
+  { name: 'Red', hex: '#FF0000' }, { name: 'Burgundy', hex: '#800020' }, { name: 'Maroon', hex: '#800000' }, { name: 'Hot Pink', hex: '#FF69B4' },
+  { name: 'Fuchsia', hex: '#FF00FF' }, { name: 'Blush Pink', hex: '#DE5D83' }, { name: 'Lilac', hex: '#C8A2C8' }, { name: 'Lavender', hex: '#E6E6FA' },
+  { name: 'Purple', hex: '#800080' }, { name: 'Plum', hex: '#8E4585' }, { name: 'Beige', hex: '#F5F5DC' }, { name: 'Cream', hex: '#FFFDD0' },
+  { name: 'Tan', hex: '#D2B48C' }, { name: 'Brown', hex: '#A52A2A' }, { name: 'Chocolate', hex: '#7B3F00' }, { name: 'Mustard', hex: '#FFDB58' },
+  { name: 'Gold', hex: '#FFD700' }, { name: 'Orange', hex: '#FFA500' }, { name: 'Coral', hex: '#FF7F50' }, { name: 'Peach', hex: '#FFE5B4' },
 ];
+const TOTAL_STEPS = 5; 
 
-const FAVORITE_COLORS = [
-  'Red',
-  'Blue',
-  'Green',
-  'Black',
-  'White',
-  'Pink',
-  'Yellow',
-  'Purple',
-  'Orange',
-  'Brown',
-];
+// --- Helper Components (Translated) ---
 
-const ProfileCreationScreen = () => {
-  const { user, checkUserProfile } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+const Stepper: React.FC<{ step: number }> = ({ step }) => (
+  <View style={styles.stepperContainer}>
+    <Text style={styles.stepperText}>
+      Step {step} of {TOTAL_STEPS}
+    </Text>
+    <View style={styles.stepperBar}>
+      <View
+        style={[
+          styles.stepperProgress,
+          { width: `${(step / TOTAL_STEPS) * 100}%` },
+        ]}
+      />
+    </View>
+  </View>
+);
 
-  // Form state
-  const [profile, setProfile] = useState<UserProfile>({
-    name: user?.displayName || '',
-    age: undefined,
-    gender: undefined,
-    bodyType: undefined,
-    fashionIcons: '',
-    preferredOccasions: [],
-    preferredStyles: [],
-    favoriteColors: [],
-    preferredFabrics: [],
-  });
+const SelectionButton = <T extends string>({
+  item,
+  selectedItems,
+  onSelect,
+  isMultiSelect = false,
+}: {
+  item: T;
+  selectedItems: T | T[];
+  onSelect: (item: T) => void;
+  isMultiSelect?: boolean;
+}) => {
+  const isActive = isMultiSelect
+    ? (selectedItems as T[]).includes(item)
+    : selectedItems === item;
+  return (
+    <TouchableOpacity
+      onPress={() => onSelect(item)}
+      style={[styles.button, isActive && styles.buttonActive]}
+    >
+      <Text style={[styles.buttonText, isActive && styles.buttonTextActive]}>
+        {item}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
-  const totalSteps = 5;
+// --- Main Screen ---
 
-  // Toggle selection for arrays
-  const toggleArraySelection = (
-    field: keyof UserProfile,
-    value: string
+const ProfileCreationScreen: React.FC = () => {
+  const auth = getAuth();
+  // const { refreshUser } = useAuth(); // ✅ FIXED: Removed, not in context
+  const [step, setStep] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  
+  const [name, setName] = useState(auth.currentUser?.displayName || '');
+  const [age, setAge] = useState<AgeGroup | ''>('');
+  const [gender, setGender] = useState<ProfileGender>('Female'); // ✅ FIXED: Use ProfileGender
+  const [preferredOccasions, setPreferredOccasions] = useState<ProfileOccasion[]>([]); // ✅ FIXED: Use ProfileOccasion
+  const [preferredStyles, setPreferredStyles] = useState<Style[]>([]); // ✅ FIXED: Use Style
+  const [favoriteColors, setFavoriteColors] = useState<string[]>([]); // ✅ This is correct (string[])
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+
+  const handlePhotoUpload = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'We need permission to access your photos.');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true, 
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setProfilePhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      setError(null);
+    }
+  };
+
+  const handleMultiSelect = <T extends string>(
+    item: T,
+    state: T[],
+    setState: React.Dispatch<React.SetStateAction<T[]>>
   ) => {
-    const currentArray = (profile[field] as string[]) || [];
-    const newArray = currentArray.includes(value)
-      ? currentArray.filter((item) => item !== value)
-      : [...currentArray, value];
-    
-    setProfile({ ...profile, [field]: newArray });
+    setState((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+    );
   };
 
-  // Handle next step
-  const handleNext = () => {
-    // Validation for current step
-    if (currentStep === 1 && !profile.name) {
-      Alert.alert('Required', 'Please enter your name');
-      return;
-    }
-    if (currentStep === 2 && !profile.age) {
-      Alert.alert('Required', 'Please select your age group');
-      return;
-    }
-    if (currentStep === 3 && !profile.gender) {
-      Alert.alert('Required', 'Please select your gender');
-      return;
-    }
-
-    if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
-    }
+  const handleColorSelect = (hex: string) => {
+    setFavoriteColors((prev) => {
+      const isSelected = prev.includes(hex);
+      if (isSelected) return prev.filter((c) => c !== hex);
+      if (prev.length < 20) return [...prev, hex];
+      return prev;
+    });
   };
 
-  // Handle back
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+  const nextStep = () => {
+    setError(null);
+    if (step === 1 && !name.trim()) {
+      setError('Please enter your name.');
+      return;
     }
+    if (step === 2 && preferredStyles.length === 0) {
+      setError('Please select at least one style.');
+      return;
+    }
+    if (step < TOTAL_STEPS) setStep((s) => s + 1);
   };
 
-  // Handle submit
-  const handleSubmit = async () => {
-    if (!user) {
-      Alert.alert('Error', 'User not authenticated');
+  const prevStep = () => {
+    if (step > 1) setStep((s) => s - 1);
+  };
+
+  const handleSave = async () => {
+    if (!auth.currentUser) {
+      Alert.alert('Error', 'You are not logged in.');
       return;
     }
 
-    // Final validation
-    if (!profile.name || !profile.age || !profile.gender) {
-      Alert.alert('Error', 'Please complete all required fields');
-      return;
-    }
-
-    setIsLoading(true);
+    const profile: UserProfile = {
+      name,
+      age: age || undefined,
+      gender: gender || undefined,
+      preferredOccasions,
+      preferredStyles,
+      favoriteColors, // ✅ This now matches the new types.ts (string[])
+    };
 
     try {
-      await saveUserProfile(user.uid, profile);
-      await checkUserProfile(); // Refresh profile status
-      console.log('✅ Profile created successfully');
-      
-      // Navigation will be handled by AuthContext
-    } catch (error) {
-      console.error('❌ Profile creation error:', error);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
-    } finally {
-      setIsLoading(false);
+      await saveUserProfile(auth.currentUser.uid, profile);
+      // ✅ FIXED: Manually navigate. _layout.tsx will see 'hasProfile'
+      // on the *next* context load, but this gets the user off this screen.
+      router.replace('/'); 
+    } catch (e: any) {
+      setError('Failed to save profile. Please try again.');
+      console.error(e);
     }
   };
 
-  // Render step content
+  // --- Step Renderer ---
+
   const renderStepContent = () => {
-    switch (currentStep) {
+    switch (step) {
       case 1:
-        return renderStep1(); // Name
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.title}>Welcome to FitFX!</Text>
+            <Text style={styles.subtitle}>
+              Let's create your style profile.
+            </Text>
+            <TouchableOpacity
+              style={styles.photoUploader}
+              onPress={handlePhotoUpload}
+            >
+              {profilePhoto ? (
+                <Image source={{ uri: profilePhoto }} style={styles.profileImage} />
+              ) : (
+                <Ionicons
+                  name="camera-outline"
+                  size={40}
+                  color={NEUMORPHIC.textSecondary}
+                />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.label}>What should we call you?</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g., Alex Doe"
+              placeholderTextColor={NEUMORPHIC.textTertiary}
+            />
+          </View>
+        );
       case 2:
-        return renderStep2(); // Age
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.title}>What's Your Style?</Text>
+            <Text style={styles.subtitle}>
+              Select one or more. This helps us find your vibe.
+            </Text>
+            <View style={styles.gridContainer}>
+              {stylesData.map((s) => ( // ✅ FIXED: Use stylesData
+                <SelectionButton
+                  key={s}
+                  item={s}
+                  selectedItems={preferredStyles}
+                  onSelect={(item) =>
+                    handleMultiSelect(item, preferredStyles, setPreferredStyles)
+                  }
+                  isMultiSelect
+                />
+              ))}
+            </View>
+          </View>
+        );
       case 3:
-        return renderStep3(); // Gender & Body Type
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.title}>Your Fit</Text>
+            <Text style={styles.subtitle}>
+              This helps in personalizing silhouettes and cuts.
+            </Text>
+            <Text style={styles.label}>Your Gender</Text>
+            <View style={styles.gridContainer}>
+              {genders.map((g) => (
+                <SelectionButton
+                  key={g}
+                  item={g}
+                  selectedItems={gender}
+                  onSelect={(item) => setGender(item)}
+                />
+              ))}
+            </View>
+            <Text style={styles.label}>Your Age Group</Text>
+            <View style={styles.gridContainer}>
+              {ageGroups.map((ag) => (
+                <SelectionButton
+                  key={ag}
+                  item={ag}
+                  selectedItems={age}
+                  onSelect={setAge}
+                />
+              ))}
+            </View>
+          </View>
+        );
       case 4:
-        return renderStep4(); // Occasions & Styles
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.title}>Your Tastes</Text>
+            <Text style={styles.subtitle}>
+              What occasions do you usually dress for?
+            </Text>
+            <View style={styles.gridContainer}>
+              {occasions.map((o) => (
+                <SelectionButton
+                  key={o}
+                  item={o}
+                  selectedItems={preferredOccasions}
+                  onSelect={(item) =>
+                    handleMultiSelect(
+                      item,
+                      preferredOccasions,
+                      setPreferredOccasions
+                    )
+                  }
+                  isMultiSelect
+                />
+              ))}
+            </View>
+          </View>
+        );
       case 5:
-        return renderStep5(); // Colors & Fashion Icons
-      default:
-        return null;
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.title}>Favorite Colors</Text>
+            <Text style={styles.subtitle}>
+              Choose colors you love (up to 20).
+            </Text>
+            <View style={styles.colorGrid}>
+              {FASHION_COLORS.map(({ name, hex }) => {
+                const isSelected = favoriteColors.includes(hex);
+                return (
+                  <TouchableOpacity
+                    key={hex}
+                    style={[
+                      styles.colorSwatch,
+                      { backgroundColor: hex },
+                      isSelected && styles.colorSwatchSelected,
+                    ]}
+                    onPress={() => handleColorSelect(hex)}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={20} color={hex === '#000000' ? '#FFFFFF' : '#000000'} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        );
     }
   };
-
-  // STEP 1: Name
-  const renderStep1 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>What's your name? 👋</Text>
-      <Text style={styles.stepSubtitle}>
-        Let's personalize your FitFX experience
-      </Text>
-      <TextInput
-        style={styles.textInput}
-        placeholder="Enter your full name"
-        placeholderTextColor={NEUMORPHIC.textTertiary}
-        value={profile.name}
-        onChangeText={(text) => setProfile({ ...profile, name: text })}
-        autoCapitalize="words"
-      />
-    </View>
-  );
-
-  // STEP 2: Age
-  const renderStep2 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Select your age group 📅</Text>
-      <Text style={styles.stepSubtitle}>
-        This helps us suggest age-appropriate styles
-      </Text>
-      <View style={styles.optionsGrid}>
-        {AGE_GROUPS.map((age) => (
-          <TouchableOpacity
-            key={age}
-            style={[
-              styles.option,
-              profile.age === age && styles.optionSelected,
-            ]}
-            onPress={() => setProfile({ ...profile, age })}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                profile.age === age && styles.optionTextSelected,
-              ]}
-            >
-              {age}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  // STEP 3: Gender & Body Type
-  const renderStep3 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Tell us about yourself 👤</Text>
-      
-      {/* Gender Selection */}
-      <Text style={styles.sectionLabel}>Gender</Text>
-      <View style={styles.optionsRow}>
-        {GENDERS.map((gender) => (
-          <TouchableOpacity
-            key={gender}
-            style={[
-              styles.smallOption,
-              profile.gender === gender && styles.optionSelected,
-            ]}
-            onPress={() => setProfile({ ...profile, gender })}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                profile.gender === gender && styles.optionTextSelected,
-              ]}
-            >
-              {gender}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Body Type Selection */}
-      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
-        Body Type (Optional)
-      </Text>
-      <View style={styles.optionsGrid}>
-        {BODY_TYPES.map((bodyType) => (
-          <TouchableOpacity
-            key={bodyType}
-            style={[
-              styles.option,
-              profile.bodyType === bodyType && styles.optionSelected,
-            ]}
-            onPress={() => setProfile({ ...profile, bodyType })}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                profile.bodyType === bodyType && styles.optionTextSelected,
-              ]}
-            >
-              {bodyType}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  // STEP 4: Occasions & Styles
-  const renderStep4 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Your style preferences ✨</Text>
-      
-      {/* Preferred Occasions */}
-      <Text style={styles.sectionLabel}>Occasions (Select multiple)</Text>
-      <View style={styles.optionsGrid}>
-        {OCCASIONS.map((occasion) => (
-          <TouchableOpacity
-            key={occasion}
-            style={[
-              styles.option,
-              profile.preferredOccasions?.includes(occasion) &&
-                styles.optionSelected,
-            ]}
-            onPress={() => toggleArraySelection('preferredOccasions', occasion)}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                profile.preferredOccasions?.includes(occasion) &&
-                  styles.optionTextSelected,
-              ]}
-            >
-              {occasion}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Preferred Styles */}
-      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
-        Style Preferences
-      </Text>
-      <View style={styles.optionsRow}>
-        {STYLES.map((style) => (
-          <TouchableOpacity
-            key={style}
-            style={[
-              styles.smallOption,
-              profile.preferredStyles?.includes(style) && styles.optionSelected,
-            ]}
-            onPress={() => toggleArraySelection('preferredStyles', style)}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                profile.preferredStyles?.includes(style) &&
-                  styles.optionTextSelected,
-              ]}
-            >
-              {style}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  // STEP 5: Colors & Fashion Icons
-  const renderStep5 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Final touches 🎨</Text>
-      
-      {/* Favorite Colors */}
-      <Text style={styles.sectionLabel}>Favorite Colors</Text>
-      <View style={styles.optionsGrid}>
-        {FAVORITE_COLORS.map((color) => (
-          <TouchableOpacity
-            key={color}
-            style={[
-              styles.colorOption,
-              profile.favoriteColors?.includes(color) && styles.optionSelected,
-            ]}
-            onPress={() => toggleArraySelection('favoriteColors', color)}
-          >
-            <View
-              style={[
-                styles.colorDot,
-                { backgroundColor: color.toLowerCase() },
-              ]}
-            />
-            <Text
-              style={[
-                styles.optionText,
-                profile.favoriteColors?.includes(color) &&
-                  styles.optionTextSelected,
-              ]}
-            >
-              {color}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Fashion Icons */}
-      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
-        Fashion Icons (Optional)
-      </Text>
-      <Text style={styles.helperText}>
-        Who inspires your style? (e.g., "Ranveer Singh, Emma Watson")
-      </Text>
-      <TextInput
-        style={[styles.textInput, { height: 80 }]}
-        placeholder="Enter fashion icons..."
-        placeholderTextColor={NEUMORPHIC.textTertiary}
-        value={profile.fashionIcons}
-        onChangeText={(text) =>
-          setProfile({ ...profile, fashionIcons: text })
-        }
-        multiline
-        textAlignVertical="top"
-      />
-    </View>
-  );
 
   return (
     <GradientBackground>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${(currentStep / totalSteps) * 100}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.progressText}>
-            Step {currentStep} of {totalSteps}
-          </Text>
-        </View>
-
-        {/* Content */}
+      <SafeAreaView style={styles.safeArea}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
         >
-          {renderStepContent()}
-        </ScrollView>
-
-        {/* Navigation Buttons */}
-        <View style={styles.buttonContainer}>
-          {currentStep > 1 && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-            >
-              <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-          )}
-          
-          {currentStep < totalSteps ? (
-            <TouchableOpacity
-              style={[
-                styles.nextButton,
-                currentStep === 1 && styles.nextButtonFull,
-              ]}
-              onPress={handleNext}
-            >
-              <Text style={styles.nextButtonText}>Continue</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.nextButton,
-                styles.submitButton,
-                isLoading && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={NEUMORPHIC.bg} />
+          <Text style={styles.headerTitle}>Create Your Profile</Text>
+          <View style={styles.card}>
+            <Stepper step={step} />
+            <View style={styles.stepContentWrapper}>{renderStepContent()}</View>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+            <View style={styles.footerButtons}>
+              <TouchableOpacity
+                onPress={prevStep}
+                disabled={step === 1}
+                style={[styles.navButton, step === 1 && styles.navButtonDisabled]}
+              >
+                <Text style={[styles.navButtonText, styles.navButtonBackText]}>Back</Text>
+              </TouchableOpacity>
+              {step < TOTAL_STEPS ? (
+                <TouchableOpacity onPress={nextStep} style={[styles.navButton, styles.navButtonPrimary]}>
+                  <Text style={styles.navButtonText}>Next</Text>
+                </TouchableOpacity>
               ) : (
-                <Text style={styles.nextButtonText}>Complete Setup</Text>
+                <TouchableOpacity onPress={handleSave} style={[styles.navButton, styles.navButtonPrimary]}>
+                  <Text style={styles.navButtonText}>Finish & Explore</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
-          )}
-        </View>
-      </KeyboardAvoidingView>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     </GradientBackground>
   );
 };
+
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
-  progressContainer: {
-    paddingHorizontal: THEME.spacing.xl,
-    paddingTop: THEME.spacing.xxl,
-    paddingBottom: THEME.spacing.lg,
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 40,
   },
-  progressBar: {
-    height: 4,
-    backgroundColor: NEUMORPHIC.bgLight,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: AURORA_GRADIENT.cyan,
-  },
-  progressText: {
-    fontSize: 12,
-    color: NEUMORPHIC.textSecondary,
-    textAlign: 'center',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: THEME.spacing.xl,
-  },
-  stepContainer: {
-    flex: 1,
-    paddingVertical: THEME.spacing.lg,
-  },
-  stepTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: NEUMORPHIC.textPrimary,
-    marginBottom: 8,
-  },
-  stepSubtitle: {
-    fontSize: 14,
-    color: NEUMORPHIC.textSecondary,
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  sectionLabel: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
     color: NEUMORPHIC.textPrimary,
-    marginBottom: 12,
+    textAlign: 'center',
+    marginVertical: 20,
   },
-  helperText: {
-    fontSize: 12,
-    color: NEUMORPHIC.textTertiary,
+  card: {
+    backgroundColor: 'rgba(30, 30, 40, 0.7)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: NEUMORPHIC.borderDark,
+  },
+  stepperContainer: {
+    marginBottom: 20,
+  },
+  stepperText: {
+    color: AURORA_GRADIENT.cyan,
+    fontSize: 14,
+    fontWeight: '600',
     marginBottom: 8,
   },
-  textInput: {
-    backgroundColor: NEUMORPHIC.bgLight,
-    borderRadius: THEME.radius.medium,
-    borderWidth: 1,
-    borderColor: NEUMORPHIC.borderLight,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
+  stepperBar: {
+    height: 6,
+    backgroundColor: NEUMORPHIC.bgDarker,
+    borderRadius: 3,
+  },
+  stepperProgress: {
+    height: 6,
+    backgroundColor: AURORA_GRADIENT.cyan,
+    borderRadius: 3,
+  },
+  stepContentWrapper: {
+    minHeight: 350,
+    justifyContent: 'center',
+  },
+  stepContainer: {
+    padding: 8,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
     color: NEUMORPHIC.textPrimary,
-    minHeight: 50,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  subtitle: {
+    fontSize: 14,
+    color: NEUMORPHIC.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  optionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: NEUMORPHIC.textSecondary,
+    marginBottom: 12,
+    marginTop: 16,
+    textAlign: 'center',
   },
-  option: {
-    backgroundColor: NEUMORPHIC.bgLight,
-    borderRadius: THEME.radius.medium,
-    borderWidth: 1.5,
-    borderColor: NEUMORPHIC.borderLight,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    minWidth: 100,
+  input: {
+    backgroundColor: NEUMORPHIC.bgDarker,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: NEUMORPHIC.borderDark,
+    padding: 12,
+    color: NEUMORPHIC.textPrimary,
+    fontSize: 16,
+    textAlign: 'center',
   },
-  smallOption: {
-    backgroundColor: NEUMORPHIC.bgLight,
-    borderRadius: THEME.radius.medium,
-    borderWidth: 1.5,
-    borderColor: NEUMORPHIC.borderLight,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flex: 1,
-    minWidth: 70,
+  photoUploader: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: NEUMORPHIC.bgDarker,
+    justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: NEUMORPHIC.borderDark,
+    overflow: 'hidden',
   },
-  optionSelected: {
+  profileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  button: {
+    backgroundColor: NEUMORPHIC.bgDarker,
+    borderWidth: 1,
+    borderColor: NEUMORPHIC.borderDark,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    minWidth: '45%',
+    alignItems: 'center',
+    margin: 4,
+  },
+  buttonActive: {
     backgroundColor: AURORA_GRADIENT.cyan,
     borderColor: AURORA_GRADIENT.cyan,
   },
-  optionText: {
+  buttonText: {
+    color: NEUMORPHIC.textSecondary,
     fontSize: 14,
     fontWeight: '600',
-    color: NEUMORPHIC.textPrimary,
-    textAlign: 'center',
   },
-  optionTextSelected: {
-    color: NEUMORPHIC.bg,
+  buttonTextActive: {
+    color: NEUMORPHIC.bgDarker,
   },
-  colorOption: {
-    backgroundColor: NEUMORPHIC.bgLight,
-    borderRadius: THEME.radius.medium,
-    borderWidth: 1.5,
-    borderColor: NEUMORPHIC.borderLight,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  colorGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  colorDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: NEUMORPHIC.borderLight,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 12,
-    paddingHorizontal: THEME.spacing.xl,
-    paddingVertical: THEME.spacing.lg,
-    paddingBottom: THEME.spacing.xxl,
   },
-  backButton: {
-    flex: 1,
-    backgroundColor: NEUMORPHIC.bgLight,
-    borderRadius: THEME.radius.medium,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+  colorSwatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: NEUMORPHIC.borderLight,
-  },
-  backButtonText: {
-    color: NEUMORPHIC.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  nextButton: {
-    flex: 2,
-    backgroundColor: AURORA_GRADIENT.cyan,
-    borderRadius: THEME.radius.medium,
-    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  nextButtonFull: {
-    flex: 1,
+  colorSwatchSelected: {
+    borderColor: AURORA_GRADIENT.cyan,
+    borderWidth: 3,
   },
-  submitButton: {
-    flex: 1,
+  errorText: {
+    color: '#EF4444', 
+    textAlign: 'center',
+    marginTop: 16,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
+  footerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: NEUMORPHIC.borderDark,
+    paddingTop: 16,
   },
-  nextButtonText: {
-    color: NEUMORPHIC.bg,
-    fontSize: 16,
+  navButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+  },
+  navButtonPrimary: {
+    backgroundColor: AURORA_GRADIENT.cyan,
+  },
+  navButtonText: {
+    color: NEUMORPHIC.bgDarker,
     fontWeight: '700',
+    fontSize: 16,
+  },
+  navButtonBackText: {
+    color: NEUMORPHIC.textSecondary,
+  },
+  navButtonDisabled: {
+    backgroundColor: 'transparent',
   },
 });
 

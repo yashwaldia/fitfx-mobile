@@ -1,38 +1,12 @@
+// This is the entire content for app/color.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { NEUMORPHIC } from '../src/config';
+import ColorMatrixScreen from '../src/screens/ColorMatrixScreen';
 
-export default function ColorPage() {
-  const router = useRouter();
+// This file (app/color.tsx) is the route,
+// and it now renders the real ColorMatrixScreen component
+// instead of the "Coming Soon!" placeholder.
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Color Analysis</Text>
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.text}>Color Screen - Coming Soon!</Text>
-      </View>
-    </SafeAreaView>
-  );
+
+export default function ColorMatrix() {
+  return <ColorMatrixScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: NEUMORPHIC.bgDarker },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  title: { fontSize: 24, fontWeight: '600', color: '#fff', marginLeft: 16 },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  text: { fontSize: 18, color: 'rgba(255, 255, 255, 0.7)' },
-});

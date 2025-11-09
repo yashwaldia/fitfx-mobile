@@ -19,8 +19,18 @@ export default function HomeTab() {
         router.push('/editor');
         break;
       case 'color':
-        router.push('/color');
-        break;
+        router.push({
+            pathname: '/color',
+            params: {
+              selfieImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // This is a 1x1 black pixel
+              occasion: 'Casual',
+              country: 'USA',
+              gender: 'Female',
+              age: '30',
+              preferredColors: 'blue,green',
+            },
+          });
+          break;
       case 'selfie':
       case 'calendar':
       case 'upgrade':

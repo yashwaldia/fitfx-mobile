@@ -1,3 +1,8 @@
+// src/services/aiFeaturesAccessService.ts
+//
+// ✅ UPDATED: Added the missing 'color-suggestion' feature
+// to fix all type errors.
+
 import { getAuth } from 'firebase/auth';
 import { getEffectiveSubscriptionTier } from './wardrobeSubscriptionService';
 import type { SubscriptionTier, AIFeature, AIFeaturesStatus } from '../types';
@@ -13,9 +18,11 @@ export function getFeatureRequirement(feature: AIFeature): {
     'ai-edit': { tier: 'free' as SubscriptionTier, tierName: 'Free' },
     'virtual-tryon': { tier: 'style_plus' as SubscriptionTier, tierName: 'Style+' },
     'fabric-mixer': { tier: 'style_x' as SubscriptionTier, tierName: 'StyleX' },
+    // ✅ FIXED: Added missing 'color-suggestion' feature
+    'color-suggestion': { tier: 'free' as SubscriptionTier, tierName: 'Free' },
   };
 
-  return requirements[feature];
+  return requirements[feature]; // ✅ FIXED: This will no longer error
 }
 
 /**
@@ -55,6 +62,8 @@ export async function getAIFeaturesStatus(
     const aiEditReq = getFeatureRequirement('ai-edit');
     const virtualTryOnReq = getFeatureRequirement('virtual-tryon');
     const fabricMixerReq = getFeatureRequirement('fabric-mixer');
+    // ✅ FIXED: Get requirements for new feature
+    const colorSuggestionReq = getFeatureRequirement('color-suggestion');
 
     const tierRank: Record<SubscriptionTier, number> = {
       free: 0,
@@ -62,6 +71,7 @@ export async function getAIFeaturesStatus(
       style_x: 2,
     };
 
+    // ✅ FIXED: Added 'colorSuggestion' to the return object
     return {
       aiEdit: {
         accessible: tierRank[currentTier] >= tierRank[aiEditReq.tier],
@@ -78,11 +88,17 @@ export async function getAIFeaturesStatus(
         requiredTier: fabricMixerReq.tier,
         tierName: fabricMixerReq.tierName,
       },
+      colorSuggestion: {
+        accessible: tierRank[currentTier] >= tierRank[colorSuggestionReq.tier],
+        requiredTier: colorSuggestionReq.tier,
+        tierName: colorSuggestionReq.tierName,
+      },
       currentTier,
     };
   } catch (error) {
     console.error('❌ Error getting AI features status:', error);
     // Return locked state on error
+    // ✅ FIXED: Added 'colorSuggestion' to the error fallback
     return {
       aiEdit: {
         accessible: true,
@@ -98,6 +114,11 @@ export async function getAIFeaturesStatus(
         accessible: false,
         requiredTier: 'style_x',
         tierName: 'StyleX',
+      },
+      colorSuggestion: {
+        accessible: true,
+        requiredTier: 'free',
+        tierName: 'Free',
       },
       currentTier: 'free',
     };

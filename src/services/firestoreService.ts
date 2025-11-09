@@ -1,7 +1,3 @@
-// ============================================
-// COMPLETE Firestore Service - All Functions
-// ============================================
-
 import {
   doc,
   setDoc,
@@ -10,29 +6,36 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
-import type { UserProfile, Subscription, Garment, SubscriptionTier } from '../types';
+import type {
+  Subscription,
+  Garment,
+  SubscriptionTier,
+  UserProfile, // ✅ CORRECTED: Import UserProfile from main types
+} from '../types';
 
 /**
  * ✨ Define subscription limits
  */
 const SUBSCRIPTION_LIMITS = {
   free: {
-    colorSuggestions: 5,
+    colorSuggestions: 999,
     outfitPreviews: 3,
     wardrobeLimit: 1, // ✅ FIXED: Free = 1 item (matching website)
     imageEditorAccess: false,
     batchGeneration: false,
     chatbotAccess: 'basic',
   },
-  style_plus: { // ✅ FIXED: Changed from style_plus
-    colorSuggestions: 10,
+  style_plus: {
+    // ✅ FIXED: Changed from style_plus
+    colorSuggestions: 999,
     outfitPreviews: 10,
     wardrobeLimit: 10, // ✅ FIXED: Style+ = 10 items (matching website)
     imageEditorAccess: true,
     batchGeneration: true,
     chatbotAccess: 'standard',
   },
-  style_x: { // ✅ FIXED: Changed from style_x
+  style_x: {
+    // ✅ FIXED: Changed from style_x
     colorSuggestions: 999,
     outfitPreviews: 999,
     wardrobeLimit: -1, // ✅ Unlimited
@@ -56,17 +59,23 @@ const cleanProfile = (profile: UserProfile) => {
   if (profile.gender) cleaned.gender = profile.gender;
   if (profile.bodyType) cleaned.bodyType = profile.bodyType;
   if (profile.fashionIcons) cleaned.fashionIcons = profile.fashionIcons;
-  if (profile.preferredOccasions) cleaned.preferredOccasions = profile.preferredOccasions;
-  if (profile.preferredStyles) cleaned.preferredStyles = profile.preferredStyles;
-  if (profile.favoriteColors) cleaned.favoriteColors = profile.favoriteColors;
-  if (profile.preferredFabrics) cleaned.preferredFabrics = profile.preferredFabrics;
+  if (profile.preferredOccasions)
+    cleaned.preferredOccasions = profile.preferredOccasions;
+  if (profile.preferredStyles)
+    cleaned.preferredStyles = profile.preferredStyles;
+  if (profile.favoriteColors)
+    cleaned.favoriteColors = profile.favoriteColors;
+  if (profile.preferredFabrics)
+    cleaned.preferredFabrics = profile.preferredFabrics;
   return cleaned;
 };
 
 /**
  * Get user profile from Firestore
  */
-export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+export const getUserProfile = async (
+  userId: string
+): Promise<UserProfile | null> => {
   try {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -113,7 +122,9 @@ export const saveUserProfile = async (
 /**
  * Load user profile from Firestore
  */
-export const loadUserProfile = async (userId: string): Promise<UserProfile | null> => {
+export const loadUserProfile = async (
+  userId: string
+): Promise<UserProfile | null> => {
   try {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -186,7 +197,9 @@ export const initializeSubscription = async (userId: string): Promise<void> => {
 /**
  * Get user subscription
  */
-export async function getSubscription(uid: string): Promise<Subscription | null> {
+export async function getSubscription(
+  uid: string
+): Promise<Subscription | null> {
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
@@ -236,7 +249,9 @@ export async function updateSubscriptionTier(
 /**
  * Get subscription tier
  */
-export async function getUserSubscriptionTier(uid: string): Promise<SubscriptionTier> {
+export async function getUserSubscriptionTier(
+  uid: string
+): Promise<SubscriptionTier> {
   try {
     const subscription = await getSubscription(uid);
     return subscription?.tier || 'free';
@@ -266,16 +281,16 @@ export async function isSubscriptionValid(uid: string): Promise<boolean> {
   try {
     const subscription = await getSubscription(uid);
     if (!subscription) return false;
-    
+
     if (subscription.status !== 'active') return false;
-    
+
     if (subscription.endDate) {
       const endDate = new Date(subscription.endDate);
       if (endDate < new Date()) {
         return false;
       }
     }
-    
+
     return true;
   } catch (error) {
     console.error('❌ Error checking subscription validity:', error);
@@ -301,7 +316,7 @@ export const loadWardrobe = async (userId: string): Promise<Garment[]> => {
 
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
-    
+
     if (docSnap.exists()) {
       const data = docSnap.data();
       const wardrobe = (data.wardrobe || []) as Garment[];
@@ -320,7 +335,10 @@ export const loadWardrobe = async (userId: string): Promise<Garment[]> => {
 /**
  * Add wardrobe item to Firestore
  */
-export const addWardrobeItem = async (userId: string, garment: Garment): Promise<void> => {
+export const addWardrobeItem = async (
+  userId: string,
+  garment: Garment
+): Promise<void> => {
   try {
     if (!userId) {
       throw new Error('No userId provided');
@@ -328,7 +346,7 @@ export const addWardrobeItem = async (userId: string, garment: Garment): Promise
 
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
-    
+
     const garmentWithMeta: Garment = {
       ...garment,
       id: garment.id || `garment-${Date.now()}`,
@@ -378,25 +396,25 @@ export const updateWardrobeItem = async (
 
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
-    
+
     if (!docSnap.exists()) {
       throw new Error('User document does not exist');
     }
-    
+
     const updatedWardrobe = [...allGarments];
     const existingGarment = allGarments[index];
-    
+
     updatedWardrobe[index] = {
       ...updatedGarment,
       id: existingGarment?.id || `garment-${Date.now()}`,
       uploadedAt: existingGarment?.uploadedAt || new Date().toISOString(),
     };
-    
+
     await updateDoc(docRef, {
       wardrobe: updatedWardrobe,
       updatedAt: new Date().toISOString(),
     });
-    
+
     console.log('✅ Wardrobe item updated');
   } catch (error) {
     console.error('❌ Error updating wardrobe item:', error);
@@ -419,18 +437,18 @@ export const deleteWardrobeItem = async (
 
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
-    
+
     if (!docSnap.exists()) {
       throw new Error('User document does not exist');
     }
-    
+
     const updatedWardrobe = allGarments.filter((_, i) => i !== index);
-    
+
     await updateDoc(docRef, {
       wardrobe: updatedWardrobe,
       updatedAt: new Date().toISOString(),
     });
-    
+
     console.log('✅ Wardrobe item deleted');
   } catch (error) {
     console.error('❌ Error deleting wardrobe item:', error);

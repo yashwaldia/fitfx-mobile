@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { AURORA_GRADIENT, NEUMORPHIC, THEME } from '../config';
+import { AURORA_GRADIENT, NEUMORPHIC } from '../config'; // ✅ Removed THEME import
 
 const LoadingSpinner: React.FC = () => {
   return (
@@ -18,7 +18,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: NEUMORPHIC.darkBase,
+    // ✅ FIXED: Used 'bgDarker' which exists in your colors.ts
+    backgroundColor: NEUMORPHIC.bgDarker,
   },
 });
 

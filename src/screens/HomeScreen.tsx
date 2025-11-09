@@ -1,19 +1,32 @@
+// src/screens/HomeScreen.tsx
+//
+// ✅ UPDATED:
+// 1. Added a Modal that shows when "Selfie" is clicked.
+// 2. Added 'handleTakePhoto' and 'handleUploadFromGallery'
+// 3. Both functions now use 'expo-image-picker' and navigate
+//    to the new '/stylist' screen with the image URI.
+
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity 
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Modal, // ✅ ADDED: Import Modal
+  Platform,
+  Alert, // ✅ ADDED: Import Alert
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker'; // ✅ ADDED: Image Picker
 import GradientBackground from '../components/GradientBackground';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import NeuButton from '../components/NeuButton';
 import IconGrid, { IconGridItem } from '../components/IconGrid';
-import { THEME, NEUMORPHIC } from '../config';
+import { THEME, NEUMORPHIC, AURORA_GRADIENT } from '../config';
 import { getUserSubscriptionTier } from '../services/subscriptionService';
 import { getAuth } from 'firebase/auth';
 
@@ -22,8 +35,15 @@ interface HomeScreenProps {
   currentTab?: 'home' | 'selfie' | 'calendar' | 'upgrade' | 'settings';
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate, currentTab = 'home' }) => {
-  const [userTier, setUserTier] = useState<'free' | 'style_plus' | 'style_x'>('free');
+const HomeScreen: React.FC<HomeScreenProps> = ({
+  onNavigate,
+  currentTab = 'home',
+}) => {
+  const [userTier, setUserTier] = useState<'free' | 'style_plus' | 'style_x'>(
+    'free'
+  );
+  // ✅ ADDED: State for the new modal
+  const [selfieModalVisible, setSelfieModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -43,28 +63,87 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate, currentTab = 'home'
     loadUserTier();
   }, []);
 
-// Change these lines in HomeScreen.tsx:
-const navigationItems: IconGridItem[] = [
-  {
-    id: 'wardrobe',
-    icon: 'hanger', // ✅ MaterialCommunityIcons name
-    label: 'Wardrobe',
-    onPress: () => onNavigate('wardrobe'),
-  },
-  {
-    id: 'editor',
-    icon: 'brush', // ✅ MaterialCommunityIcons name
-    label: 'Editor',
-    onPress: () => onNavigate('editor'),
-  },
-  {
-    id: 'color',
-    icon: 'palette', // ✅ MaterialCommunityIcons name
-    label: 'Color',
-    onPress: () => onNavigate('color'),
-  },
-];
+  // ✅ ADDED: Function to handle 'Take Photo'
+  const handleTakePhoto = async () => {
+    setSelfieModalVisible(false); // Close modal first
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'We need permission to access your camera.');
+      return;
+    }
 
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        // base64: true, // We will convert from URI in the next screen
+      });
+
+      if (!result.canceled && result.assets[0].uri) {
+        // Pass the URI. The StylistScreen will handle conversion.
+        router.push({
+          pathname: '/stylist',
+          params: { imageUri: result.assets[0].uri },
+        });
+      }
+    } catch (err) {
+      console.error('Error taking photo:', err);
+      Alert.alert('Error', 'Failed to take photo.');
+    }
+  };
+
+  // ✅ ADDED: Function to handle 'Upload from Gallery'
+  const handleUploadFromGallery = async () => {
+    setSelfieModalVisible(false); // Close modal first
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'We need permission to access your photos.');
+      return;
+    }
+
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        // base64: true, // We will convert from URI in the next screen
+      });
+
+      if (!result.canceled && result.assets[0].uri) {
+        // Pass the URI. The StylistScreen will handle conversion.
+        router.push({
+          pathname: '/stylist',
+          params: { imageUri: result.assets[0].uri },
+        });
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+      Alert.alert('Error', 'Failed to pick image.');
+    }
+  };
+
+  const navigationItems: IconGridItem[] = [
+    {
+      id: 'wardrobe',
+      icon: 'wardrobe-outline',
+      label: 'Wardrobe',
+      onPress: () => router.push('/wardrobe'),
+    },
+    {
+      id: 'editor',
+      icon: 'auto-fix',
+      label: 'Editor',
+      onPress: () => router.push({ pathname: '/wardrobe', params: { tab: 'ai' } }),
+    },
+    {
+      id: 'color',
+      icon: 'palette',
+      label: 'Color',
+      onPress: () => onNavigate('color'), // This still uses onNavigate
+    },
+  ];
 
   const getTierBadge = () => {
     switch (userTier) {
@@ -78,15 +157,15 @@ const navigationItems: IconGridItem[] = [
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <View style={styles.wrapper}>
-        <GradientBackground>
+    <GradientBackground>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <View style={styles.wrapper}>
           <ScrollView
             style={styles.container}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
           >
-            {/* Logo */}
+            {/* Logo, Welcome Card, etc. (all unchanged) */}
             <View style={styles.logoSection}>
               <Image
                 source={require('../../assets/images/logo.png')}
@@ -94,8 +173,6 @@ const navigationItems: IconGridItem[] = [
                 resizeMode="contain"
               />
             </View>
-
-            {/* Welcome Card */}
             <GlassmorphicCard style={styles.welcomeCard} intensity="medium">
               <Text style={styles.welcomeTitle}>
                 Welcome to FitFX{getTierBadge()}
@@ -104,14 +181,8 @@ const navigationItems: IconGridItem[] = [
                 Elevate Your Style with AI-Powered Suggestions
               </Text>
             </GlassmorphicCard>
-
-            {/* Section Title */}
             <Text style={styles.sectionTitle}>What would you like to do?</Text>
-
-            {/* Navigation Grid */}
             <IconGrid items={navigationItems} columns={3} />
-
-            {/* Featured Section */}
             <Text style={styles.sectionTitle}>Featured</Text>
             <GlassmorphicCard style={styles.featuredCard} intensity="medium">
               <Text style={styles.featuredTitle}>Today's Suggestion</Text>
@@ -125,8 +196,6 @@ const navigationItems: IconGridItem[] = [
                 style={styles.button}
               />
             </GlassmorphicCard>
-
-            {/* CTA Section */}
             {userTier === 'free' && (
               <GlassmorphicCard style={styles.ctaCard} intensity="medium">
                 <Text style={styles.ctaTitle}>Ready to upgrade?</Text>
@@ -141,94 +210,186 @@ const navigationItems: IconGridItem[] = [
                 />
               </GlassmorphicCard>
             )}
-
-            {/* Bottom padding */}
             <View style={{ height: 100 }} />
           </ScrollView>
-        </GradientBackground>
 
-        {/* BOTTOM NAVIGATION BAR */}
-        <View style={[styles.bottomNav, { paddingBottom: insets.bottom || 8 }]}>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => onNavigate('home')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={currentTab === 'home' ? 'home' : 'home-outline'}
-              size={22}
-              color={currentTab === 'home' ? '#00CED1' : NEUMORPHIC.textSecondary}
-            />
-            <Text style={[styles.navLabel, currentTab === 'home' && styles.navLabelActive]}>
-              Home
-            </Text>
-          </TouchableOpacity>
+          {/* BOTTOM NAVIGATION BAR */}
+          <View style={[styles.bottomNav, { paddingBottom: insets.bottom || 8 }]}>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => onNavigate('home')}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={currentTab === 'home' ? 'home' : 'home-outline'}
+                size={22}
+                color={
+                  currentTab === 'home'
+                    ? AURORA_GRADIENT.cyan
+                    : NEUMORPHIC.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.navLabel,
+                  currentTab === 'home' && styles.navLabelActive,
+                ]}
+              >
+                Home
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => onNavigate('selfie')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={currentTab === 'selfie' ? 'camera' : 'camera-outline'}
-              size={22}
-              color={currentTab === 'selfie' ? '#00CED1' : NEUMORPHIC.textSecondary}
-            />
-            <Text style={[styles.navLabel, currentTab === 'selfie' && styles.navLabelActive]}>
-              Selfie
-            </Text>
-          </TouchableOpacity>
+            {/* ✅ FIXED: Selfie button now opens the modal */}
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => setSelfieModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={currentTab === 'selfie' ? 'camera' : 'camera-outline'}
+                size={22}
+                color={
+                  currentTab === 'selfie'
+                    ? AURORA_GRADIENT.cyan
+                    : NEUMORPHIC.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.navLabel,
+                  currentTab === 'selfie' && styles.navLabelActive,
+                ]}
+              >
+                Selfie
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => onNavigate('calendar')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={currentTab === 'calendar' ? 'calendar' : 'calendar-outline'}
-              size={22}
-              color={currentTab === 'calendar' ? '#00CED1' : NEUMORPHIC.textSecondary}
-            />
-            <Text style={[styles.navLabel, currentTab === 'calendar' && styles.navLabelActive]}>
-              Calendar
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => onNavigate('upgrade')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={currentTab === 'upgrade' ? 'rocket' : 'rocket-outline'}
-              size={22}
-              color={currentTab === 'upgrade' ? '#00CED1' : NEUMORPHIC.textSecondary}
-            />
-            <Text style={[styles.navLabel, currentTab === 'upgrade' && styles.navLabelActive]}>
-              Upgrade
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => onNavigate('settings')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={currentTab === 'settings' ? 'settings' : 'settings-outline'}
-              size={22}
-              color={currentTab === 'settings' ? '#00CED1' : NEUMORPHIC.textSecondary}
-            />
-            <Text style={[styles.navLabel, currentTab === 'settings' && styles.navLabelActive]}>
-              Settings
-            </Text>
-          </TouchableOpacity>
+            {/* Other nav buttons (unchanged) */}
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => onNavigate('calendar')}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={
+                  currentTab === 'calendar' ? 'calendar' : 'calendar-outline'
+                }
+                size={22}
+                color={
+                  currentTab === 'calendar'
+                    ? AURORA_GRADIENT.cyan
+                    : NEUMORPHIC.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.navLabel,
+                  currentTab === 'calendar' && styles.navLabelActive,
+                ]}
+              >
+                Calendar
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => onNavigate('upgrade')}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={currentTab === 'upgrade' ? 'rocket' : 'rocket-outline'}
+                size={22}
+                color={
+                  currentTab === 'upgrade'
+                    ? AURORA_GRADIENT.cyan
+                    : NEUMORPHIC.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.navLabel,
+                  currentTab === 'upgrade' && styles.navLabelActive,
+                ]}
+              >
+                Upgrade
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => onNavigate('settings')}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={
+                  currentTab === 'settings' ? 'settings' : 'settings-outline'
+                }
+                size={22}
+                color={
+                  currentTab === 'settings'
+                    ? AURORA_GRADIENT.cyan
+                    : NEUMORPHIC.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.navLabel,
+                  currentTab === 'settings' && styles.navLabelActive,
+                ]}
+              >
+                Settings
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </SafeAreaView>
+
+        {/* ✅ ADDED: The Selfie Picker Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={selfieModalVisible}
+          onRequestClose={() => {
+            setSelfieModalVisible(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Upload Selfie</Text>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleTakePhoto}
+              >
+                <Ionicons
+                  name="camera-outline"
+                  size={22}
+                  color={AURORA_GRADIENT.cyan}
+                />
+                <Text style={styles.modalButtonText}>Take a Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleUploadFromGallery}
+              >
+                <Ionicons
+                  name="image-outline"
+                  size={22}
+                  color={AURORA_GRADIENT.cyan}
+                />
+                <Text style={styles.modalButtonText}>Upload from Gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setSelfieModalVisible(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </SafeAreaView>
+    </GradientBackground>
   );
 };
 
+// --- Styles ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -241,12 +402,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: THEME.spacing.lg,
+    padding: 16,
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: THEME.spacing.xxl,
-    marginBottom: THEME.spacing.xl,
+    marginTop: 32,
+    marginBottom: 24,
     height: 70,
     justifyContent: 'center',
   },
@@ -255,75 +416,68 @@ const styles = StyleSheet.create({
     height: 60,
   },
   welcomeCard: {
-    marginBottom: THEME.spacing.xl,
-    padding: THEME.spacing.lg,
+    marginBottom: 24,
+    padding: 16,
   },
   welcomeTitle: {
-    fontSize: THEME.typography.heading2.fontSize,
-    fontWeight: THEME.typography.heading2.fontWeight,
-    lineHeight: THEME.typography.heading2.lineHeight,
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 30,
     color: NEUMORPHIC.textPrimary,
-    marginBottom: THEME.spacing.sm,
-    letterSpacing: THEME.typography.heading2.letterSpacing,
+    marginBottom: 8,
   },
   welcomeSubtitle: {
-    fontSize: THEME.typography.body.fontSize,
-    fontWeight: THEME.typography.body.fontWeight,
-    lineHeight: THEME.typography.body.lineHeight,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
     color: NEUMORPHIC.textSecondary,
-    letterSpacing: THEME.typography.body.letterSpacing,
   },
   sectionTitle: {
-    fontSize: THEME.typography.heading3.fontSize,
-    fontWeight: THEME.typography.heading3.fontWeight,
-    lineHeight: THEME.typography.heading3.lineHeight,
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 26,
     color: NEUMORPHIC.textPrimary,
-    marginVertical: THEME.spacing.lg,
-    letterSpacing: THEME.typography.heading3.letterSpacing,
+    marginVertical: 16,
   },
   featuredCard: {
-    marginBottom: THEME.spacing.lg,
-    padding: THEME.spacing.lg,
+    marginBottom: 16,
+    padding: 16,
   },
   featuredTitle: {
-    fontSize: THEME.typography.heading3.fontSize,
-    fontWeight: THEME.typography.heading3.fontWeight,
-    lineHeight: THEME.typography.heading3.lineHeight,
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 26,
     color: NEUMORPHIC.textPrimary,
-    marginBottom: THEME.spacing.sm,
-    letterSpacing: THEME.typography.heading3.letterSpacing,
+    marginBottom: 8,
   },
   featuredDescription: {
-    fontSize: THEME.typography.body.fontSize,
-    fontWeight: THEME.typography.body.fontWeight,
-    lineHeight: THEME.typography.body.lineHeight,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
     color: NEUMORPHIC.textSecondary,
-    marginBottom: THEME.spacing.lg,
-    letterSpacing: THEME.typography.body.letterSpacing,
+    marginBottom: 16,
   },
   ctaCard: {
-    marginBottom: THEME.spacing.xl,
-    padding: THEME.spacing.lg,
+    marginBottom: 24,
+    padding: 16,
   },
   ctaTitle: {
-    fontSize: THEME.typography.heading3.fontSize,
-    fontWeight: THEME.typography.heading3.fontWeight,
-    lineHeight: THEME.typography.heading3.lineHeight,
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 26,
     color: NEUMORPHIC.textPrimary,
-    marginBottom: THEME.spacing.sm,
-    letterSpacing: THEME.typography.heading3.letterSpacing,
+    marginBottom: 8,
   },
   ctaDescription: {
-    fontSize: THEME.typography.body.fontSize,
-    fontWeight: THEME.typography.body.fontWeight,
-    lineHeight: THEME.typography.body.lineHeight,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
     color: NEUMORPHIC.textSecondary,
-    marginBottom: THEME.spacing.lg,
-    letterSpacing: THEME.typography.body.letterSpacing,
+    marginBottom: 16,
   },
   button: {
     width: '100%',
-    paddingVertical: THEME.spacing.md,
+    paddingVertical: 12,
   },
   bottomNav: {
     position: 'absolute',
@@ -355,8 +509,53 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   navLabelActive: {
-    color: '#00CED1',
+    color: AURORA_GRADIENT.cyan,
     fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    backgroundColor: NEUMORPHIC.bgLight,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 32,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: NEUMORPHIC.textPrimary,
+    marginBottom: 16,
+  },
+  modalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: NEUMORPHIC.bgDarker,
+    padding: 14,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: NEUMORPHIC.borderDark,
+  },
+  modalButtonText: {
+    color: NEUMORPHIC.textPrimary,
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  modalCancelButton: {
+    marginTop: 8,
+    padding: 10,
+  },
+  modalCancelButtonText: {
+    color: NEUMORPHIC.textSecondary,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 
