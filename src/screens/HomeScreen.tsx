@@ -1,81 +1,187 @@
-// src/screens/HomeScreen.tsx
-//
-// ✅ UPDATED:
-// 1. No changes were needed!
-// 2. The button `onPress={() => onNavigate('calendar')}` is already
-//    correct and will work with the new CalendarScreen.
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   Image,
   TouchableOpacity,
   Modal,
-  Platform,
   Alert,
+  FlatList,
+  ActivityIndicator,
+  Linking,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import GradientBackground from '../components/GradientBackground';
-import GlassmorphicCard from '../components/GlassmorphicCard';
-import NeuButton from '../components/NeuButton';
 import IconGrid, { IconGridItem } from '../components/IconGrid';
-import { THEME, NEUMORPHIC, AURORA_GRADIENT } from '../config';
-import { getUserSubscriptionTier } from '../services/subscriptionService';
-import { getAuth } from 'firebase/auth';
+
+import { NEUMORPHIC, AURORA_GRADIENT, STATUS_COLORS } from '../config/colors';
+import { THEME } from '../config/theme';
+
+// --- TYPES ---
+interface FashionPost {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  url: string;
+  source: string;
+  timestamp: string;
+}
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
   currentTab?: 'home' | 'selfie' | 'calendar' | 'upgrade' | 'settings';
 }
 
+// --- NEWS CARD COMPONENT (IMAGE-ONLY) ---
+const FashionPostCard: React.FC<{ post: FashionPost }> = ({ post }) => {
+  const handlePress = () => {
+    if (post.url) {
+      Linking.openURL(post.url).catch(() =>
+        Alert.alert('Error', 'Could not open this link.')
+      );
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.8}
+      onPress={handlePress}
+    >
+      {post.image && (
+        <Image
+          source={{ uri: post.image }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
+      )}
+    </TouchableOpacity>
+  );
+};
+
+// --- HOME SCREEN ---
 const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigate,
   currentTab = 'home',
 }) => {
-  const [userTier, setUserTier] = useState<'free' | 'style_plus' | 'style_x'>(
-    'free'
-  );
   const [selfieModalVisible, setSelfieModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    const loadUserTier = async () => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          const tier = await getUserSubscriptionTier(user.uid);
-          setUserTier(tier);
-        }
-      } catch (error) {
-        console.error('Error loading user tier:', error);
-      }
-    };
+  const [posts, setPosts] = useState<FashionPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    loadUserTier();
+  // --- FETCH FASHION CONTENT FROM PIXABAY API ---
+  const fetchFashionContent = async () => {
+    try {
+      setError(null);
+      const allPosts: FashionPost[] = [];
+
+      // ============================================================
+      // PRIMARY SOURCE: PIXABAY API - Fashion Images
+      // ============================================================
+      try {
+        const pixabayKey = process.env.EXPO_PUBLIC_PIXABAY_API_KEY;
+
+        // Updated array of fashion-related search terms for better visuals
+        const fashionQueries = [
+          'street style outfit',
+          'fashion model editorial',
+          'haute couture',
+          'summer fashion trends',
+          'winter fashion outfit',
+          'fashion aesthetics',
+          'minimalist fashion',
+          'designer runway show',
+          'vogue fashion',
+          'fashion week street style',
+        ];
+
+        // Pick random query for variety on each refresh
+        const randomQuery =
+          fashionQueries[Math.floor(Math.random() * fashionQueries.length)];
+
+        const pixabayUrl = `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(
+          randomQuery
+        )}&image_type=photo&order=popular&per_page=20&safesearch=true&category=fashion`;
+
+        const pixabayResponse = await fetch(pixabayUrl);
+
+        if (pixabayResponse.ok) {
+          const pixabayData = await pixabayResponse.json();
+
+          if (pixabayData.hits && Array.isArray(pixabayData.hits)) {
+            pixabayData.hits.slice(0, 20).forEach((hit: any, idx: number) => {
+              allPosts.push({
+                id: `pixabay-${hit.id}-${idx}`,
+                // We fetch this data even if not displayed, in case we need it later
+                title: `Fashion Inspiration #${idx + 1}`,
+                description: `Beautiful fashion photography by ${hit.user}`,
+                image: hit.largeImageURL || hit.webformatURL,
+                url: hit.pageURL,
+                source: 'Pixabay',
+                timestamp: new Date().toLocaleDateString(),
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching from Pixabay API:', err);
+      }
+
+      // ============================================================
+      // PROCESS & DISPLAY RESULTS
+      // ============================================================
+
+      if (allPosts.length > 0) {
+        setPosts(allPosts);
+        setError(null);
+      } else {
+        setError(
+          'No fashion content available. Please check:\n1. Your Pixabay API key is valid\n2. Your internet connection'
+        );
+      }
+    } catch (err: any) {
+      console.error('Error fetching fashion content:', err);
+      setError('Failed to load fashion content. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFashionContent();
   }, []);
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchFashionContent();
+  };
+
   const handleTakePhoto = async () => {
-    setSelfieModalVisible(false); // Close modal first
+    setSelfieModalVisible(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'We need permission to access your camera.');
+      Alert.alert(
+        'Permission required',
+        'We need permission to access your camera.'
+      );
       return;
     }
-
     try {
       let result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
       });
-
       if (!result.canceled && result.assets[0].uri) {
         router.push({
           pathname: '/stylist',
@@ -89,13 +195,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleUploadFromGallery = async () => {
-    setSelfieModalVisible(false); // Close modal first
+    setSelfieModalVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'We need permission to access your photos.');
+      Alert.alert(
+        'Permission required',
+        'We need permission to access your photos.'
+      );
       return;
     }
-
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -103,7 +211,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         aspect: [1, 1],
         quality: 0.5,
       });
-
       if (!result.canceled && result.assets[0].uri) {
         router.push({
           pathname: '/stylist',
@@ -127,7 +234,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       id: 'editor',
       icon: 'auto-fix',
       label: 'Editor',
-      onPress: () => router.push({ pathname: '/wardrobe', params: { tab: 'ai' } }),
+      onPress: () =>
+        router.push({ pathname: '/wardrobe', params: { tab: 'ai' } }),
     },
     {
       id: 'color',
@@ -137,75 +245,64 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     },
   ];
 
-  const getTierBadge = () => {
-    switch (userTier) {
-      case 'style_plus':
-        return ' Style+';
-      case 'style_x':
-        return ' StyleX';
-      default:
-        return '';
-    }
-  };
+  const renderHeader = () => (
+    <View>
+      <View style={styles.logoSection}>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+
+      <Text style={styles.sectionTitle}>What would you like to do?</Text>
+      <IconGrid items={navigationItems} columns={3} />
+
+      <Text style={styles.feedTitle}>Latest Fashion Inspiration</Text>
+
+      {loading && !refreshing && (
+        <ActivityIndicator
+          size="large"
+          color={AURORA_GRADIENT.cyan}
+          style={{ marginVertical: 40 }}
+        />
+      )}
+
+      {error && !loading && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={onRefresh} style={styles.errorButton}>
+            <Text style={styles.errorButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <GradientBackground>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.wrapper}>
-          <ScrollView
-            style={styles.container}
+          <FlatList
+            key={'two-column-grid'} // <-- HERE IS THE FIX
+            data={posts}
+            renderItem={({ item }) => <FashionPostCard post={item} />}
+            keyExtractor={(item) => item.id}
+            ListHeaderComponent={renderHeader}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
-          >
-            {/* Logo, Welcome Card, etc. (all unchanged) */}
-            <View style={styles.logoSection}>
-              <Image
-                source={require('../../assets/images/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
+            numColumns={2} // Creates the 2-column grid
+            columnWrapperStyle={styles.columnWrapper} // Adds spacing between columns
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={AURORA_GRADIENT.cyan}
               />
-            </View>
-            <GlassmorphicCard style={styles.welcomeCard} intensity="medium">
-              <Text style={styles.welcomeTitle}>
-                Welcome to FitFX{getTierBadge()}
-              </Text>
-              <Text style={styles.welcomeSubtitle}>
-                Elevate Your Style with AI-Powered Suggestions
-              </Text>
-            </GlassmorphicCard>
-            <Text style={styles.sectionTitle}>What would you like to do?</Text>
-            <IconGrid items={navigationItems} columns={3} />
-            <Text style={styles.sectionTitle}>Featured</Text>
-            <GlassmorphicCard style={styles.featuredCard} intensity="medium">
-              <Text style={styles.featuredTitle}>Today's Suggestion</Text>
-              <Text style={styles.featuredDescription}>
-                Navy Blue Chinos + White Cotton Shirt + Light Grey Blazer
-              </Text>
-              <NeuButton
-                title="View Details"
-                onPress={() => onNavigate('suggestions')}
-                size="medium"
-                style={styles.button}
-              />
-            </GlassmorphicCard>
-            {userTier === 'free' && (
-              <GlassmorphicCard style={styles.ctaCard} intensity="medium">
-                <Text style={styles.ctaTitle}>Ready to upgrade?</Text>
-                <Text style={styles.ctaDescription}>
-                  Unlock unlimited outfits and premium AI features
-                </Text>
-                <NeuButton
-                  title="Upgrade Now"
-                  onPress={() => onNavigate('upgrade')}
-                  size="medium"
-                  style={styles.button}
-                />
-              </GlassmorphicCard>
-            )}
-            <View style={{ height: 100 }} />
-          </ScrollView>
+            }
+            ListFooterComponent={<View style={{ height: 100 }} />}
+          />
 
-          {/* BOTTOM NAVIGATION BAR */}
           <View style={[styles.bottomNav, { paddingBottom: insets.bottom || 8 }]}>
             <TouchableOpacity
               style={styles.navButton}
@@ -230,7 +327,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 Home
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => setSelfieModalVisible(true)}
@@ -254,8 +350,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 Selfie
               </Text>
             </TouchableOpacity>
-
-            {/* This button is already correct! */}
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => onNavigate('calendar')}
@@ -281,7 +375,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 Calendar
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => onNavigate('upgrade')}
@@ -305,17 +398,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 Upgrade
               </Text>
             </TouchableOpacity>
-
-            {/* ✅ FIXED: Changed to "Profile" */}
             <TouchableOpacity
               style={styles.navButton}
-              onPress={() => onNavigate('settings')} // Still navigates to 'settings' page
+              onPress={() => onNavigate('settings')}
               activeOpacity={0.7}
             >
               <Ionicons
-                name={
-                  currentTab === 'settings' ? 'person' : 'person-outline' // ✅ Changed icon
-                }
+                name={currentTab === 'settings' ? 'person' : 'person-outline'}
                 size={22}
                 color={
                   currentTab === 'settings'
@@ -329,13 +418,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   currentTab === 'settings' && styles.navLabelActive,
                 ]}
               >
-                Profile {/* ✅ Changed label */}
+                Profile
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* The Selfie Picker Modal (Unchanged) */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -383,47 +471,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   );
 };
 
-// --- Styles ---
+// --- STYLES ---
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
+  safeArea: { flex: 1 },
+  wrapper: { flex: 1 },
+  content: { paddingHorizontal: 16 },
+  columnWrapper: {
+    // Adds space between the two columns
+    justifyContent: 'space-between',
   },
-  wrapper: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
+
   logoSection: {
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 24,
-    height: 70,
+    marginTop: 16,
+    marginBottom: 16,
+    height: 60,
     justifyContent: 'center',
   },
   logo: {
     width: 60,
     height: 60,
-  },
-  welcomeCard: {
-    marginBottom: 24,
-    padding: 16,
-  },
-  welcomeTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 30,
-    color: NEUMORPHIC.textPrimary,
-    marginBottom: 8,
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 20,
-    color: NEUMORPHIC.textSecondary,
   },
   sectionTitle: {
     fontSize: 18,
@@ -431,47 +498,57 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: NEUMORPHIC.textPrimary,
     marginVertical: 16,
+    marginTop: 24,
   },
-  featuredCard: {
-    marginBottom: 16,
-    padding: 16,
-  },
-  featuredTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 26,
+  feedTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 30,
     color: NEUMORPHIC.textPrimary,
-    marginBottom: 8,
+    marginVertical: 16,
+    marginTop: 8,
   },
-  featuredDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 20,
-    color: NEUMORPHIC.textSecondary,
-    marginBottom: 16,
+
+  card: {
+    width: '48.5%', // <-- Creates 2 columns with a small gap
+    backgroundColor: NEUMORPHIC.bgLight,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: NEUMORPHIC.borderDark,
+    marginBottom: 12, // <-- Space between rows
+    overflow: 'hidden',
   },
-  ctaCard: {
-    marginBottom: 24,
-    padding: 16,
-  },
-  ctaTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 26,
-    color: NEUMORPHIC.textPrimary,
-    marginBottom: 8,
-  },
-  ctaDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 20,
-    color: NEUMORPHIC.textSecondary,
-    marginBottom: 16,
-  },
-  button: {
+  cardImage: {
     width: '100%',
-    paddingVertical: 12,
+    aspectRatio: 4 / 5, // <-- Portrait 4:5 aspect ratio (taller than wide)
+    backgroundColor: NEUMORPHIC.bgDarker,
   },
+
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: NEUMORPHIC.bgLight,
+    borderRadius: 16,
+    marginVertical: 20,
+  },
+  errorText: {
+    color: STATUS_COLORS.error,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  errorButton: {
+    backgroundColor: AURORA_GRADIENT.cyan,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+  },
+  errorButtonText: {
+    color: NEUMORPHIC.bgDarker,
+    fontWeight: '700',
+  },
+
   bottomNav: {
     position: 'absolute',
     bottom: 0,
@@ -505,7 +582,7 @@ const styles = StyleSheet.create({
     color: AURORA_GRADIENT.cyan,
     fontWeight: '600',
   },
-  // Modal Styles
+
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',

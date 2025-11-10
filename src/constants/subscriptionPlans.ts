@@ -116,7 +116,7 @@ export const SUBSCRIPTION_PLANS: PlanConfig[] = [
   {
     tier: 'style_plus',
     name: 'Style+',
-    price: 499,
+    price: 49,
     currency: 'INR',
     interval: 'month',
     popular: true,
@@ -136,7 +136,7 @@ export const SUBSCRIPTION_PLANS: PlanConfig[] = [
   {
     tier: 'style_x',
     name: 'StyleX',
-    price: 999,
+    price: 99,
     currency: 'INR',
     interval: 'month',
     features: [
